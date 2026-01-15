@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>投資信託 総口数チャート</title>
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#0b0f14; --panel:#111720; --text:#e8eef6; --muted:#9fb0c3; --accent:#6aa0ff; }
+    body{margin:0 10px;padding:16px;background:var(--bg);color:var(--text);font-family:'Noto Sans JP',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:none;margin:0 auto}
+    #topFixed{ width:100%; margin:0 auto; max-width:1100px; }
+    .panel{background:var(--panel);border-radius:12px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+    .row{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;align-items:start}
+    @media (max-width:900px){.row{grid-template-columns:1fr}}
+    .drop{border:1.5px dashed #2a3443;border-radius:10px;padding:18px 12px;min-height:110px;text-align:center;background:#0f141c;cursor:pointer;display:block;transition:box-shadow .15s ease, border-color .15s ease; font-size:13px}
+    .drop.dragover{ box-shadow:0 0 0 2px rgba(106,160,255,.35) inset; border-color:#6aa0ff; }
+    #file{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;z-index:-1;left:-9999px;top:auto}
+    .controls{display:flex;flex-direction:column;gap:10px;align-items:flex-start;flex-wrap:nowrap;margin-top:8px}
+    .ctrl-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{cursor:pointer;border:1px solid #2a3443;background:#152033;color:var(--text);border-radius:8px;padding:6px 12px;font-size:13px}
+    .status{font-size:12px;color:var(--muted);white-space:pre-wrap;min-height:110px;height:110px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2a3443 #0f141c}
+    #status::-webkit-scrollbar{ width:10px; height:10px }
+    #status::-webkit-scrollbar-track{ background:#0f141c }
+    #status::-webkit-scrollbar-thumb{ background:#2a3443; border-radius:8px; border:2px solid #0f141c }
+    h1{font-size:18px;margin:0 0 10px}
+    .hint{font-size:11px;color:var(--muted);margin-top:4px}
+    .legend{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--text);margin:0}
+    .legend-item{display:flex;gap:8px;align-items:center;background:#0f141c;border:1px solid #2a3443;border-radius:8px;padding:6px 8px}
+    .legend-item .swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+    .legend-item .name{opacity:.95}
+    .charts{
+      display:grid;
+      grid-template-rows:1fr auto;
+      gap:8px;
+      resize: both;
+      overflow: hidden;
+      min-width: 320px;
+      min-height: 360px;
+      padding-right: 14px;
+      padding-bottom: 14px;
+      box-sizing: border-box;
+    }
+    #topChart,#bottomChart{height:420px;min-height:220px;width:100%;min-width:320px;resize:vertical;overflow:hidden;padding-bottom:56px;box-sizing:border-box;position:relative}
+    #bottomChart{height:220px}
+    #topChart>div,#bottomChart>div{ overflow: visible !important; }
+    .fund-name{margin:8px 0 12px;font-size:14px;color:var(--text);display:flex;align-items:center;gap:10px}
+    .fund-name .label{color:var(--muted);margin-right:6px}
+    .toggle-wrap{display:flex;align-items:center;gap:8px;font-size:14px}
+    .toggle-wrap.disabled{opacity:.5;filter:grayscale(0.3)}
+    .toggle-wrap.disabled input{cursor:not-allowed}
+    .toggle-wrap input{cursor:pointer}
+    .panel-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:10px}
+    .help-btn{ margin-left:auto; border:1px solid #2a3443; background:#152033; color:var(--text); border-radius:8px; padding:6px 10px; font-size:13px; cursor:pointer; }
+    .help-btn:hover{ background:#1b2738; border-color:#3a4960; }
+    .modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:9999; }
+    .modal.open{ display:flex; }
+    .modal-panel{ width:min(980px, 92vw); height:min(86vh, 900px); background:var(--panel); border:1px solid #2a3443; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.45); display:flex; flex-direction:column; overflow:hidden; }
+    .modal-head{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid #2a3443; background:#0f141c; }
+    .modal-head .title{ font-weight:600; font-size:14px; color:var(--text); }
+    .modal-close{ margin-left:auto; border:1px solid #2a3443; background:#152033; color:#cbd5e1; border-radius:8px; padding:4px 10px; font-size:12px; cursor:pointer; }
+    .modal-close:hover{ background:#1b2738; border-color:#3a4960; }
+    .modal-body{ padding:14px; overflow:auto; color:var(--text); font-size:13px; }
+    .modal{ text-align:left; }
+    .modal-body{ text-align:left; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="topFixed">
+      <header style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;">
+        <div style="font-size:18px;font-weight:600;">投資信託 総口数チャート</div>
+        <button id="helpBtn" class="help-btn" title="使い方を開く">ヘルプ</button>
+      </header>
+
+      <div class="panel" style="margin-bottom:12px">
+        <div class="row">
+          <div>
+            <label for="file" id="drop" class="drop" tabindex="0">
+              ここをクリックしてCSVを選択（1個）<br><span class="hint">またはドラッグ＆ドロップ</span>
+            </label>
+            <input id="file" type="file" accept=".csv,text/csv">
+          </div>
+          <div class="panel status-panel">
+            <div style="font-size:13px;margin-bottom:4px">ステータス</div>
+            <div id="status" class="status">待機中</div>
+          </div>
+        </div>
+        <div class="panel-row">
+          <label class="toggle-wrap" id="reinvestToggleWrap">
+            <input id="toggleReinvest" type="checkbox">
+            基準価額(税引前分配金再投資)の表示
+          </label>
+          <div class="legend" id="legend">
+            <div class="legend-item"><span class="swatch" style="background:#ffea61"></span><span class="name">基準価額</span></div>
+        <div class="legend-item"><span class="swatch" style="background:#ff8a3d"></span><span class="name">基準価額 (分配金再投資)</span></div>
+            <div class="legend-item"><span class="swatch" style="background:#00ffff"></span><span class="name">総口数 (億口)</span></div>
+            <div class="legend-item"><span class="swatch" style="background:#00ff88"></span><span class="name">純資産総額 (億円)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="fundName" class="fund-name">
+      <span class="label">ファンド名:</span><span id="fundNameText">-</span>
+      <label class="toggle-wrap" id="millionToggleWrap" style="margin-left:auto;">
+        <input id="toggleMillionUnit" type="checkbox">
+        純資産額が百万円単位の場合はここをチェック (SBI AM等)
+      </label>
+    </div>
+
+    <div class="charts" id="chartsWrap">
+      <div id="topChart" class="panel" aria-label="基準価額・口数チャート"></div>
+      <div id="bottomChart" class="panel" aria-label="純資産総額チャート"></div>
+    </div>
+    <footer style="margin-top:10px;text-align:center;color:#9fb0c3;font-size:12px;">
+      <div><a href="https://github.com/hirotgr/jfund-unit-chart" target="_blank" style="color:#6aa0ff;text-decoration:none;">jfund-unit-chart</a> version 0.1 : created by GPT-5.2-Codex with <a href="https://x.com/_hirotgr" target="_blank" style="color:#6aa0ff;text-decoration:none;">@_hirotgr</a></div>
+      <div>powered by <a href="https://jp.tradingview.com/lightweight-charts/" target="_blank" style="color:#6aa0ff;text-decoration:none;">Lightweight Charts™︎ (©TradingView)</a>, License: Apache2.0 (see LICENSE and NOTICE on <a href="https://github.com/tradingview/lightweight-charts" target="_blank" style="color:#6aa0ff;text-decoration:none;">GitHub</a>)</div>
+
+    </footer>
+  </div>
+
+  <!-- Help Modal -->
+  <div id="helpModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal-panel" tabindex="-1">
+      <div class="modal-head">
+        <div id="helpTitle" class="title">使い方マニュアル</div>
+        <button id="helpClose" class="modal-close" aria-label="閉じる">閉じる</button>
+      </div>
+      <div class="modal-body">
+        <h2>概要</h2>
+        <p>これ投資信託の総口数を時系列チャート形式で確認するためのツールです。</p>
+        <p>投資信託運用会社のWebサイトから基準価額のCSVファイルをダウンロードしてドラッグ&ドロップしてください。処理は全てローカルで行われ、サーバーへのアップロードは行いません。</p>
+        <p>CSVファイルの1行目にファンド名が記載してあれば、「ファンド名」欄にそれが表示されます。記載がない場合はファイル名がファンド名として表示されます。</p>
+        <br>
+        <p>一般的に投資信託運用会社のWebサイトでは基準価額と純資産総額のチャートが提供さますが、総口数のチャートは提供されません。<br>
+            純資産総額は基準価額と口数の増減により変動しますので、投資信託が継続的に購入されているか、解約が多いのかは純資産総額の増減では判断できません。</p>
+        <p>しかし、総口数の推移を見れば継続的に購入されている投資信託なのか、新たな購入者が少なく解約が多くなっているのかを推測できます。</p>
+        <p>ただし、決して「総口数が増加しているから良い投資信託」という訳ではありません。単に流行りだけで数年経てば廃れる投資信託も多いです。地味で口数の伸びない投資信託でもある程度の純資産があれば経費増大や償還のリスクは小さいです。</p>
+        <h2>制限事項</h2>
+        <ul>
+          <li>@_hirotgrが保有している投資信託の運用会社が提供するCSVファイルのフォーマットは全てサポートしていますが、このツールで対応できない運用会社があるかもしれません。</li>
+          <li>運用会社から提供される投資信託の基準価額データCSVファイルはフォーマットが統一されていません。純資産総額は「億円」単位が主流ですが「円」「百万円」単位の会社もあります。</li>
+          <li>このツールではCSVファイルの純資産総額が「億円」単位であることを想定していますが、純資産総額が100兆円(=1000000億円)以上の場合は純資産総額が億円ではなく円単位だと推定して補正します。日本で最も純資産額が大きな投信(eMAXIS Slim米国株式(S&P500))の10兆円単位なのでおそらく妥当な判別手段です。</li>
+          <li>しかし、純資産総額が「百万円」単位で表記されたCSVを自動判別するのは困難です。「純資産額が百万円単位の場合はここをチェック (SBI AM等)」をチェックすれば再計算を行い、正しい純資産総額と総口数が表示されます。」</li>
+          <li>CSVファイルに分配金再投資を想定した基準価額が掲載されていない場合は「基準価額 (分配金再投資)」チャートは描画できません。</li>
+        </ul>
+        <br>
+        <ul>
+          <li>このアプリの使用によって生じた損害に対して@_hirotgrはいかなる責任も負いません。</li>
+          <li>このアプリのリポジトリ: <a href="https://github.com/hirotgr/jfund-unit-chart" target="_blank">https://github.com/hirotgr/jfund-unit-chart</a></li>
+          <li>GitHub Pagesで公開していますが、単純な静的アプリなのでこのページを「名前を付けて保存」またはリポジトリからindex.htmlをダウンロードしてjfund-unit-chart.htmlなどに名前を変えてブラウザで開けばローカルでも使用できます。</li>
+        </ul>
+        <br>
+        <h2>利用ライブラリなど</h2>
+        <ul>
+          <li>このアプリは全部GPT-5.2-Codexがが書いたものです。著作権フリーです。</li>
+          <li>TradingViewがApache 2.0ライセンスで提供する<strong>Lightweight Charts™︎</strong>ライブラリを使用しています。ライセンスなどは以下を参照してください。
+            <ul>
+              <li><a href="https://jp.tradingview.com/lightweight-charts/" target="_blank">https://jp.tradingview.com/lightweight-charts/</a></li>
+              <li><a href="https://github.com/tradingview/lightweight-charts" target="_blank">https://github.com/tradingview/lightweight-charts</a></li>
+            </ul>
+          </li>
+          <li><strong>Lightweight Charts™︎</strong>ライブラリ取得のために CDN(<a href="https://cdn.jsdelivr.net/" target="_blank">https://cdn.jsdelivr.net/</a>)への接続性が必要です</li>
+          <li>Googleのフォントライブラリ(<a href="https://fonts.googleapis.com" target="_blank">https://fonts.googleapis.com</a>)への接続性が必要です。</li>
+          <li>GoogleとAdobeが共同開発し、Googleから提供されている Noto Sans JP フォントを使用しています。ライセンスはSIL Open Font License 1.1です。詳しくは以下を参照してください。</li>
+            <ul>
+              <li><a href="https://developers.google.com/fonts/faq?hl=ja" target="_blank">https://developers.google.com/fonts/faq?hl=ja</a></li>
+              <li><a href="https://fonts.google.com/" target="_blank">https://fonts.google.com/</a></li>
+            </ul>
+          </li>
+        </ul>
+    </div>
+    </div>
+  </div>
+
+<script>
+  const $ = (sel) => document.querySelector(sel);
+  const AXIS_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace';
+  const AXIS_FONT_SIZE = 12;
+  function computeAxisLabelWidth(){
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 64;
+    ctx.font = `${AXIS_FONT_SIZE}px ${AXIS_FONT_FAMILY}`;
+    const textWidth = ctx.measureText('000,000').width;
+    return Math.ceil(textWidth + 16);
+  }
+  const AXIS_LABEL_WIDTH = computeAxisLabelWidth();
+  function getPaneXOffset(chart){
+    try {
+      const ps = chart && chart.priceScale ? chart.priceScale('left') : null;
+      if (ps && ps.options && ps.options().visible === false) return 0;
+      if (ps && typeof ps.width === 'function') {
+        const w = ps.width();
+        if (Number.isFinite(w) && w > 0) return w;
+      }
+    } catch(_){ }
+    return AXIS_LABEL_WIDTH;
+  }
+
+  (function setupHelpModal(){
+    const helpBtn = document.getElementById('helpBtn');
+    const helpModal = document.getElementById('helpModal');
+    const helpClose = document.getElementById('helpClose');
+    if (!helpBtn || !helpModal || !helpClose) return;
+    const open = ()=>{ helpModal.classList.add('open'); };
+    const close = ()=>{ helpModal.classList.remove('open'); };
+    helpBtn.addEventListener('click', open);
+    helpClose.addEventListener('click', close);
+    helpModal.addEventListener('click', (e)=>{ if (e.target === helpModal) close(); });
+    window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') close(); });
+  })();
+
+  // utils
+  const FW_MAP = {'０':'0','１':'1','２':'2','３':'3','４':'4','５':'5','６':'6','７':'7','８':'8','９':'9','／':'/','－':'-','．':'.','，':','};
+  function toHalfWidth(s){ return String(s||'').replace(/[０-９／－．，]/g, ch => FW_MAP[ch] || ch); }
+  function normalizeEOLKeepCRLF(text){
+    if (/\r\n/.test(text)) return text;
+    if (/\r(?!\n)/.test(text)) return text.replace(/\r/g, '\n');
+    return text;
+  }
+  function parseDateToUTCSeconds(s){
+    if(!s) return null;
+    let t = toHalfWidth(String(s).trim().replace(/["']/g,''));
+    t = t.replace(/[\u00A0\u200B\uFEFF]/g, '');
+    t = t.replace(/[（(].*?[)）]/g, '').trim();
+    let m = t.match(/^(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日?$/);
+    if (m) { const y=+m[1], mo=+m[2], d=+m[3]; const date=new Date(Date.UTC(y,mo-1,d,0,0,0)); return Number.isFinite(date.getTime()) ? Math.floor(date.getTime()/1000) : null; }
+    m = t.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if(m){ const y=+m[1], mo=+m[2], d=+m[3]; return Math.floor(Date.UTC(y,mo-1,d,0,0,0)/1000); }
+    m = t.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?(?:([+\-]\d{2}:?\d{2}|Z))?$/);
+    if(m){ const y=+m[1], mo=+m[2], d=+m[3]; return Math.floor(Date.UTC(y,mo-1,d,0,0,0)/1000); }
+    const dt = new Date(t); if(!isNaN(dt)) return Math.floor(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate())/1000);
+    return null;
+  }
+  function pickHeaderAndDelimiter(lines){
+    const maxScan = Math.min(10, lines.length);
+    for (let i=0; i<maxScan; i++){
+      const line = toHalfWidth(lines[i]);
+      const counts = [
+        {d:',',c:(line.match(/,/g)||[]).length},
+        {d:'\t',c:(line.match(/\t/g)||[]).length},
+        {d:';',c:(line.match(/;/g)||[]).length}
+      ].sort((a,b)=>b.c-a.c);
+      if (counts[0].c > 0) return {headerIndex: i, delim: counts[0].d === '\t' ? '\t' : counts[0].d};
+    }
+    throw new Error('区切り文字（カンマ/タブ/セミコロン）が見つかりません。');
+  }
+  function normalizeHeader(s){ return toHalfWidth(String(s||'').trim().replace(/^\ufeff/, '')).replace(/["']/g,'').replace(/[\s　]/g,''); }
+  function splitRespectingQuotes(str, delimChar) {
+    if (delimChar === '\t') return str.split('\t');
+    const out = []; let cur=''; let inQuotes=false;
+    for (let i=0;i<str.length;i++){ const ch=str[i];
+      if (ch === '"'){ if (inQuotes && str[i+1] === '"'){ cur+='"'; i++; } else { inQuotes=!inQuotes; } }
+      else if (!inQuotes && ch === delimChar){ out.push(cur); cur=''; }
+      else { cur+=ch; }
+    } out.push(cur); return out;
+  }
+  function normalizeLabel(name){
+    return String(name||'').replace(/\.csv$/i,'').trim();
+  }
+  function labelFromTextAndSource(text, sourceLabel){
+    const textNorm = normalizeEOLKeepCRLF(text);
+    const lines = textNorm.split(/\r\n|\n/).filter(l => l.trim().length > 0);
+    const { headerIndex: hi } = pickHeaderAndDelimiter(lines);
+    if (hi > 0) {
+      return normalizeLabel(toHalfWidth(lines[0] || '').replace(/^\ufeff/, '').trim());
+    }
+    const m = String(sourceLabel||'').match(/^file:(.+)$/);
+    const name = m ? m[1] : (sourceLabel||'series');
+    return normalizeLabel(name);
+  }
+  async function decodePreferSjis(file){
+    const buf = await file.arrayBuffer();
+    function score(text){ let s=0; if (!/\ufffd/.test(text)) s+=2; if (/日付|基準価額|基準価格|分配金|純資産総額/.test(text)) s+=5; if (/[\u3040-\u30ff\u4e00-\u9faf]/.test(text)) s+=1; return s; }
+    let sj=''; try{ sj=new TextDecoder('shift_jis').decode(buf);}catch(_){ }
+    const ssj=score(sj); if (ssj>=6) { appendStatus(`デコード: Shift_JIS (${ssj})`); return sj; }
+    let u8=''; try{ u8=new TextDecoder('utf-8').decode(buf);}catch(_){ }
+    const su8=score(u8); appendStatus(`デコード比較: Shift_JIS=${ssj} / UTF-8=${su8}`); return su8>ssj?u8:sj;
+  }
+  function parseNumber(raw){
+    if (raw == null) return null;
+    let s = toHalfWidth(String(raw)).replace(/["']/g,'').trim();
+    s = s.replace(/[\u00A0\u200B\uFEFF]/g, '');
+    if (!s) return null;
+    s = s.replace(/^[\\¥]/, '');
+    s = s.replace(/\s+/g, '');
+    s = s.replace(/,/g, '');
+    if (!s) return null;
+    const v = Number(s);
+    return isFinite(v) ? v : null;
+  }
+  function dedupByTime(arr){
+    arr.sort((a,b)=>a.time-b.time);
+    const out=[];
+    for (const r of arr){
+      if (!out.length || out[out.length-1].time !== r.time) out.push(r);
+      else out[out.length-1] = r;
+    }
+    return out;
+  }
+  function parseFundCSV(rawText, sourceLabel){
+    const text = normalizeEOLKeepCRLF(rawText);
+    const lines = text.split(/\r\n|\n/).filter(l => l.trim().length > 0);
+    if (!lines.length) throw new Error('CSVが空です');
+    const { headerIndex, delim } = pickHeaderAndDelimiter(lines);
+    const headerLine = toHalfWidth(lines[headerIndex]);
+    const header = splitRespectingQuotes(headerLine, delim).map(normalizeHeader);
+
+    const dateAliases = ['日付','基準日','約定日','受渡日','年月日','DATE','Date','date','基準日付','基準年月日'];
+    let idxDate = header.findIndex(h => dateAliases.includes(h));
+    if (idxDate === -1) {
+      let bestCol=-1,bestScore=0;
+      const lookahead=Math.min(lines.length, headerIndex+51);
+      for (let j=0;j<header.length;j++){
+        let ok=0,cnt=0;
+        for (let i=headerIndex+1;i<lookahead;i++){
+          const cols = splitRespectingQuotes(toHalfWidth(lines[i]), delim);
+          if (cols.length<=j) continue;
+          if (parseDateToUTCSeconds(cols[j])) ok++; cnt++;
+        }
+        const ratio = cnt ? ok/cnt : 0; if (ratio>bestScore){bestScore=ratio;bestCol=j;}
+      }
+      if (bestScore>=0.6) idxDate=bestCol;
+    }
+    if (idxDate === -1) throw new Error('ヘッダーに日付列が見つかりません。例: 日付 / Date');
+
+    const navTokens = /基準価額|基準価格|NAV|nav|Price|price|時価|終値/;
+    const reinvestTokens = /分配金再投資|税引前分配金再投資|再投資/;
+    let idxNavReinvest = header.findIndex(h => reinvestTokens.test(h) && navTokens.test(h));
+    let idxNav = header.findIndex(h => navTokens.test(h) && !reinvestTokens.test(h));
+    if (idxNav === -1) {
+      // Fallback: numeric-ish column (excluding date & net assets hints)
+      for (let j=0;j<header.length;j++){
+        if (j===idxDate) continue;
+        if (/純資産/.test(header[j])) continue;
+        let numericCount=0, checked=0;
+        for (let i=headerIndex+1;i<Math.min(lines.length, headerIndex+51);i++){
+          const cols = splitRespectingQuotes(toHalfWidth(lines[i]), delim);
+          if (cols.length<=j) continue;
+          const v = parseNumber(cols[j]);
+          if (v != null) numericCount++; checked++;
+        }
+        if (checked>0 && numericCount/checked >= 0.6){ idxNav=j; break; }
+      }
+    }
+    if (idxNav === -1) throw new Error('基準価額列が特定できませんでした。');
+
+    let idxNetAssets = header.findIndex(h => /純資産総額|純資産額/.test(h));
+    if (idxNetAssets === -1) idxNetAssets = header.findIndex(h => /純資産/.test(h));
+    if (idxNetAssets === -1) idxNetAssets = header.findIndex(h => /AUM|NetAssets|NetAsset/i.test(h));
+    if (idxNetAssets === -1) throw new Error('純資産総額列が特定できませんでした。');
+
+    const navSeries=[];
+    const navReinvestSeries=[];
+    const netAssetsSeries=[];
+    const unitBaseRows=[];
+    let netScale = 1;
+    let netScaleChecked = false;
+
+    const maxIdx = Math.max(idxDate, idxNav, idxNavReinvest, idxNetAssets);
+    for (let i=headerIndex+1;i<lines.length;i++){
+      const cols = splitRespectingQuotes(toHalfWidth(lines[i]), delim);
+      if (cols.length <= maxIdx) continue;
+      const t = parseDateToUTCSeconds(cols[idxDate]);
+      if (!t) continue;
+      const nav = parseNumber(cols[idxNav]);
+      if (nav != null) navSeries.push({ time: t, value: nav });
+      let navReinvest = null;
+      if (idxNavReinvest >= 0){
+        navReinvest = parseNumber(cols[idxNavReinvest]);
+        if (navReinvest != null) navReinvestSeries.push({ time: t, value: navReinvest });
+      }
+      const netAssetsRaw = parseNumber(cols[idxNetAssets]);
+      if (netAssetsRaw != null) {
+        if (!netScaleChecked) {
+          netScaleChecked = true;
+          // 純資産総額が 100兆円 (1000000億円) の場合は純資産総額が億円ではなく円単位だと判断
+          // 純資産総額が百万円単位の投資信託は自動判別が困難で対応できない
+          if (netAssetsRaw >= 1000000) netScale = 1 / 100000000;
+        }
+        const netAssets = netAssetsRaw * netScale;
+        netAssetsSeries.push({ time: t, value: netAssets });
+        if (nav != null) unitBaseRows.push({ time: t, nav, netAssets });
+      }
+    }
+
+    const navData = dedupByTime(navSeries);
+    const navReinvestData = dedupByTime(navReinvestSeries);
+    const netAssetsData = dedupByTime(netAssetsSeries);
+    const unitBaseData = dedupByTime(unitBaseRows);
+
+    if (!navData.length) throw new Error('基準価額の有効なデータが見つかりません。');
+    if (!netAssetsData.length) throw new Error('純資産総額の有効なデータが見つかりません。');
+    if (!unitBaseData.length) throw new Error('口数の計算に必要なデータが不足しています。');
+
+    const unitData = dedupByTime(unitBaseData.map(r => ({
+      time: r.time,
+      value: r.netAssets * 10000 / r.nav
+    })));
+
+    const label = labelFromTextAndSource(text, `file:${sourceLabel}`);
+    return {
+      label,
+      headerIndex,
+      delim,
+      navData,
+      navReinvestData,
+      netAssetsData,
+      unitData,
+      hasReinvest: navReinvestData.length > 0,
+      unitFormula: '純資産総額 * 10000 / 基準価額',
+      netAssetsScale: netScale,
+    };
+  }
+
+  // DOM
+  const statusEl = $('#status');
+  const fileInput = $('#file');
+  const drop = $('#drop');
+  const fundNameText = $('#fundNameText');
+  const toggleReinvest = $('#toggleReinvest');
+  const reinvestToggleWrap = $('#reinvestToggleWrap');
+  const toggleMillionUnit = $('#toggleMillionUnit');
+  const millionToggleWrap = $('#millionToggleWrap');
+  if (toggleMillionUnit && millionToggleWrap) {
+    toggleMillionUnit.disabled = true;
+    millionToggleWrap.classList.add('disabled');
+  }
+
+  function setStatus(msg){ statusEl.textContent = msg; statusEl.scrollTop = statusEl.scrollHeight; }
+  function appendStatus(msg){
+    statusEl.textContent = (statusEl.textContent ? statusEl.textContent + '\n' : '') + msg;
+    statusEl.scrollTop = statusEl.scrollHeight;
+  }
+
+  // charts
+  const topEl = document.getElementById('topChart');
+  const bottomEl = document.getElementById('bottomChart');
+
+  let chartTop = null;
+  let chartBottom = null;
+  let resizeObsTop = null;
+  let resizeObsBottom = null;
+  let __topXhair = null;
+  let __bottomXhair = null;
+
+  function initCharts(){
+    if (resizeObsTop) resizeObsTop.disconnect();
+    if (resizeObsBottom) resizeObsBottom.disconnect();
+    resizeObsTop = null;
+    resizeObsBottom = null;
+    try { if (chartTop && typeof chartTop.remove === 'function') chartTop.remove(); } catch(_){}
+    try { if (chartBottom && typeof chartBottom.remove === 'function') chartBottom.remove(); } catch(_){}
+    topEl.innerHTML = '';
+    bottomEl.innerHTML = '';
+
+    chartTop = LightweightCharts.createChart(topEl, {
+      layout:{ background:{type:'solid', color:'#111720'}, textColor:'#e8eef6', fontFamily:AXIS_FONT_FAMILY, fontSize: AXIS_FONT_SIZE },
+      rightPriceScale:{ borderVisible:false, minimumWidth: AXIS_LABEL_WIDTH },
+      leftPriceScale:{ borderVisible:false, visible:true, minimumWidth: AXIS_LABEL_WIDTH },
+      timeScale:{
+        borderVisible:false,
+        timeVisible:true,
+        secondsVisible:false,
+        rightOffset:8,
+        fixLeftEdge:true,
+        fixRightEdge:true,
+        minimumHeight:48,
+        tickMarkFormatter: (t) => {
+          if (t && typeof t === 'object' && 'year' in t) {
+            const y = t.year;
+            const m = String(t.month).padStart(2,'0');
+            const d = String(t.day).padStart(2,'0');
+            return `${y}/${m}/${d}`;
+          }
+          const dt = new Date((typeof t === 'number' ? t : 0) * 1000);
+          const y = dt.getUTCFullYear();
+          const m = String(dt.getUTCMonth()+1).padStart(2,'0');
+          const d = String(dt.getUTCDate()).padStart(2,'0');
+          return `${y}/${m}/${d}`;
+        }
+      },
+      localization: {
+        timeFormatter: (t) => {
+          if (typeof t === 'number') {
+            const d = new Date(t * 1000);
+            return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+          }
+          if (t && typeof t === 'object' && 'year' in t) {
+            const y = t.year, m = String(t.month).padStart(2,'0'), d = String(t.day).padStart(2,'0');
+            return `${y}-${m}-${d}`;
+          }
+          return String(t);
+        }
+      },
+      grid:{ horzLines:{visible:true,color:'rgba(255,255,255,0.05)'}, vertLines:{visible:false} },
+      crosshair:{
+        mode: LightweightCharts.CrosshairMode.Magnet,
+        vertLine:{ color:'#ffffff', width:1, style: LightweightCharts.LineStyle.Dotted, visible:true, labelVisible:true },
+        horzLine:{ color:'#ffffff', width:1, style: LightweightCharts.LineStyle.Dotted, visible:true, labelVisible:true }
+      },
+      width: topEl.clientWidth, height: topEl.clientHeight,
+    });
+    chartBottom = LightweightCharts.createChart(bottomEl, {
+      layout:{ background:{type:'solid', color:'#111720'}, textColor:'#e8eef6', fontFamily:AXIS_FONT_FAMILY, fontSize: AXIS_FONT_SIZE },
+      rightPriceScale:{ borderVisible:false, minimumWidth: AXIS_LABEL_WIDTH },
+      leftPriceScale:{ borderVisible:false, visible:true, minimumWidth: AXIS_LABEL_WIDTH },
+      timeScale:{
+        borderVisible:false,
+        timeVisible:true,
+        secondsVisible:false,
+        rightOffset:8,
+        fixLeftEdge:true,
+        fixRightEdge:true,
+        minimumHeight:48,
+        tickMarkFormatter: (t) => {
+          if (t && typeof t === 'object' && 'year' in t) {
+            const y = t.year;
+            const m = String(t.month).padStart(2,'0');
+            const d = String(t.day).padStart(2,'0');
+            return `${y}/${m}/${d}`;
+          }
+          const dt = new Date((typeof t === 'number' ? t : 0) * 1000);
+          const y = dt.getUTCFullYear();
+          const m = String(dt.getUTCMonth()+1).padStart(2,'0');
+          const d = String(dt.getUTCDate()).padStart(2,'0');
+          return `${y}/${m}/${d}`;
+        }
+      },
+      localization: {
+        timeFormatter: (t) => {
+          if (typeof t === 'number') {
+            const d = new Date(t * 1000);
+            return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+          }
+          if (t && typeof t === 'object' && 'year' in t) {
+            const y = t.year, m = String(t.month).padStart(2,'0'), d = String(t.day).padStart(2,'0');
+            return `${y}-${m}-${d}`;
+          }
+          return String(t);
+        }
+      },
+      grid:{ horzLines:{visible:true,color:'rgba(255,255,255,0.05)'}, vertLines:{visible:false} },
+      crosshair:{
+        mode: LightweightCharts.CrosshairMode.Magnet,
+        vertLine:{ color:'#ffffff', width:1, style: LightweightCharts.LineStyle.Dotted, visible:true, labelVisible:true },
+        horzLine:{ color:'#ffffff', width:1, style: LightweightCharts.LineStyle.Dotted, visible:true, labelVisible:true }
+      },
+      width: bottomEl.clientWidth, height: bottomEl.clientHeight,
+    });
+    resizeObsTop = new ResizeObserver(()=>chartTop.applyOptions({ width: topEl.clientWidth, height: topEl.clientHeight }));
+    resizeObsTop.observe(topEl);
+    resizeObsBottom = new ResizeObserver(()=>chartBottom.applyOptions({ width: bottomEl.clientWidth, height: bottomEl.clientHeight }));
+    resizeObsBottom.observe(bottomEl);
+
+    __topXhair = createCrosshairOverlay(topEl, () => getPaneXOffset(chartTop));
+    __bottomXhair = createCrosshairOverlay(bottomEl, () => getPaneXOffset(chartBottom));
+    setupTimeScaleSync();
+    window.__topTip = null;
+    window.__bottomTip = null;
+    setupTopChartTooltip();
+    setupBottomChartTooltip();
+  }
+
+  function formatNumber(v){
+    if (!isFinite(v)) return '';
+    return Math.round(Number(v)).toLocaleString('ja-JP');
+  }
+  function formatNumberForAxis(v){
+    if (!isFinite(v)) return String(v);
+    return Math.round(Number(v)).toLocaleString('ja-JP');
+  }
+  function normalizeSeriesData(arr, label){
+    const cleaned = [];
+    for (const p of (arr || [])){
+      if (!p) continue;
+      const t = Number(p.time);
+      const v = Number(p.value);
+      if (!Number.isFinite(t) || !Number.isFinite(v)) continue;
+      cleaned.push({ time: Math.floor(t), value: v });
+    }
+    cleaned.sort((a,b)=>a.time-b.time);
+    const removed = (arr || []).length - cleaned.length;
+    if (removed > 0) appendStatus(`警告: ${label} に無効なデータが ${removed} 件あり除外しました。`);
+    return cleaned;
+  }
+
+  let lineNav = null;
+  let lineNavReinvest = null;
+  let lineUnit = null;
+  let lineNetAssets = null;
+  let navData = [];
+  let navReinvestData = [];
+  let unitData = [];
+  let netAssetsData = [];
+  let baseNavData = [];
+  let baseNavReinvestData = [];
+  let baseUnitData = [];
+  let baseNetAssetsData = [];
+  let loadSeq = 0;
+
+  function resetSeries(){
+    try{ if (lineNav) chartTop.removeSeries(lineNav); }catch(_){ }
+    try{ if (lineNavReinvest) chartTop.removeSeries(lineNavReinvest); }catch(_){ }
+    try{ if (lineUnit) chartTop.removeSeries(lineUnit); }catch(_){ }
+    try{ if (lineNetAssets) chartBottom.removeSeries(lineNetAssets); }catch(_){ }
+    lineNav = null; lineNavReinvest = null; lineUnit = null; lineNetAssets = null;
+    navData = []; navReinvestData = []; unitData = []; netAssetsData = [];
+    baseNavData = []; baseNavReinvestData = []; baseUnitData = []; baseNetAssetsData = [];
+    try{ if (__topXhair) __topXhair.hide(); }catch(_){ }
+    try{ if (__bottomXhair) __bottomXhair.hide(); }catch(_){ }
+    try{ chartTop && chartTop.clearCrosshair(); }catch(_){ }
+    try{ chartBottom && chartBottom.clearCrosshair(); }catch(_){ }
+    try{ chartTop && chartTop.applyOptions({ leftPriceScale:{ visible:true, autoScale:true, minimumWidth: AXIS_LABEL_WIDTH }, rightPriceScale:{ visible:true, autoScale:true, minimumWidth: AXIS_LABEL_WIDTH } }); }catch(_){ }
+    try{ chartBottom && chartBottom.applyOptions({ leftPriceScale:{ visible:true, autoScale:true, minimumWidth: AXIS_LABEL_WIDTH }, rightPriceScale:{ visible:true, autoScale:true, minimumWidth: AXIS_LABEL_WIDTH } }); }catch(_){ }
+    __propSuppress = { source: null, t: null, deadline: 0 };
+    __lastCrosshairTopX = null;
+    __lastCrosshairBottomX = null;
+    __tipSyncTopUntil = 0;
+    __tipSyncBottomUntil = 0;
+    __skipPropagateFromTopOnce = false;
+    __skipPropagateFromBottomOnce = false;
+    __inTopApiMove = 0;
+    __inBottomApiMove = 0;
+    __lastTopTime = null;
+    __lastTopClock = 0;
+    __lastBottomTime = null;
+    __lastBottomClock = 0;
+    if (__rafTop) cancelAnimationFrame(__rafTop);
+    if (__rafBottom) cancelAnimationFrame(__rafBottom);
+    __rafTop = null;
+    __rafBottom = null;
+  }
+
+  function applyReinvestVisibility(){
+    if (!lineNavReinvest) return;
+    const visible = !!toggleReinvest.checked && !toggleReinvest.disabled;
+    lineNavReinvest.applyOptions({ visible });
+  }
+
+  toggleReinvest.addEventListener('change', applyReinvestVisibility);
+  toggleMillionUnit.addEventListener('change', ()=>{
+    if (!baseNetAssetsData.length || !baseUnitData.length) return;
+    applyNetAssetsUnitScale();
+  });
+
+  // --- Custom crosshair overlay (for the non-hovering chart) ---
+  function createCrosshairOverlay(_container, getXOffset){
+    const container = _container;
+    const offsetFn = typeof getXOffset === 'function' ? getXOffset : (()=>0);
+    const root = document.createElement('div');
+    root.style.position = 'absolute';
+    root.style.inset = '0';
+    root.style.pointerEvents = 'none';
+    root.style.zIndex = '40';
+    root.style.display = 'none';
+    container.appendChild(root);
+
+    const v = document.createElement('div');
+    v.style.position = 'absolute';
+    v.style.top = '0';
+    v.style.bottom = '0';
+    v.style.width = '0';
+    v.style.borderLeft = '1px dotted rgba(255,255,255,0.9)';
+    root.appendChild(v);
+
+    const h = document.createElement('div');
+    h.style.position = 'absolute';
+    h.style.left = '0';
+    h.style.right = '0';
+    h.style.height = '0';
+    h.style.borderTop = '1px dotted rgba(255,255,255,0.9)';
+    root.appendChild(h);
+
+    const xBadge = document.createElement('div');
+    xBadge.style.position = 'absolute';
+    xBadge.style.bottom = '2px';
+    xBadge.style.transform = 'translateX(-50%)';
+    xBadge.style.padding = '1px 4px';
+    xBadge.style.fontSize = '11px';
+    xBadge.style.color = '#e8eef6';
+    xBadge.style.background = '#0f141c';
+    xBadge.style.border = '1px solid #2a3443';
+    xBadge.style.borderRadius = '4px';
+    xBadge.style.whiteSpace = 'nowrap';
+    xBadge.style.display = 'none';
+    root.appendChild(xBadge);
+
+    const yBadge = document.createElement('div');
+    yBadge.style.position = 'absolute';
+    yBadge.style.right = '2px';
+    yBadge.style.transform = 'translateY(-50%)';
+    yBadge.style.padding = '1px 4px';
+    yBadge.style.fontSize = '11px';
+    yBadge.style.color = '#e8eef6';
+    yBadge.style.background = '#0f141c';
+    yBadge.style.border = '1px solid #2a3443';
+    yBadge.style.borderRadius = '4px';
+    yBadge.style.whiteSpace = 'nowrap';
+    yBadge.style.display = 'none';
+    root.appendChild(yBadge);
+
+    function show(x, y, opts){
+      const cs = getComputedStyle(container);
+      const padL = parseFloat(cs.paddingLeft) || 0;
+      const padT = parseFloat(cs.paddingTop) || 0;
+      const paneOffset = offsetFn() || 0;
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const xx = Math.max(0, Math.min(Math.round(x), cw - 1));
+      const yy = Math.max(0, Math.min(Math.round(y), ch - 1));
+
+      v.style.left = (xx + padL + paneOffset) + 'px';
+      h.style.top  = (yy + padT) + 'px';
+
+      const xText = opts && typeof opts.xText === 'string' ? opts.xText : '';
+      const yText = opts && typeof opts.yText === 'string' ? opts.yText : '';
+      if (xText){
+        xBadge.textContent = xText;
+        xBadge.style.left = (xx + padL + paneOffset) + 'px';
+        xBadge.style.display = 'block';
+      }else{
+        xBadge.style.display = 'none';
+      }
+      if (yText){
+        yBadge.textContent = yText;
+        yBadge.style.top = (yy + padT) + 'px';
+        yBadge.style.display = 'block';
+      }else{
+        yBadge.style.display = 'none';
+      }
+
+      root.style.display = 'block';
+    }
+
+    function hide(){
+      root.style.display = 'none';
+      xBadge.style.display = 'none';
+      yBadge.style.display = 'none';
+    }
+
+    return { show, hide };
+  }
+
+  let __tipSyncTopUntil = 0;
+  let __tipSyncBottomUntil = 0;
+  let __skipPropagateFromTopOnce = false;
+  let __skipPropagateFromBottomOnce = false;
+  let __inTopApiMove = 0;
+  let __inBottomApiMove = 0;
+  let __propSuppress = { source: null, t: null, deadline: 0 };
+  let __lastTopTime = null, __lastTopClock = 0;
+  let __lastBottomTime = null, __lastBottomClock = 0;
+  let __lastCrosshairTopX = null, __lastCrosshairBottomX = null;
+  let __rafTop = null, __rafBottom = null;
+  function __nowClock(){ return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
+
+  // === Bidirectional timeScale sync (zoom & scroll) ===
+  let __syncing = false;
+  function __setRangeSafe(dstChart, range){
+    if (!range) return;
+    try { dstChart.timeScale().setVisibleRange(range); } catch(_){ }
+  }
+  function setupTimeScaleSync(){
+    __syncing = false;
+    if (!chartTop || !chartBottom) return;
+    chartTop.timeScale().subscribeVisibleTimeRangeChange((range)=>{
+      if (__syncing || !range) return;
+      __syncing = true;
+      __setRangeSafe(chartBottom, range);
+      __syncing = false;
+    });
+    chartBottom.timeScale().subscribeVisibleTimeRangeChange((range)=>{
+      if (__syncing || !range) return;
+      __syncing = true;
+      __setRangeSafe(chartTop, range);
+      __syncing = false;
+    });
+  }
+
+  function seriesVisible(series){
+    try { return series.options().visible !== false; } catch(_) { return true; }
+  }
+
+  function findValueAt(arr, tnum){
+    if (!arr || !arr.length) return null;
+    let lo = 0, hi = arr.length - 1, resIdx = -1;
+    while (lo <= hi){
+      const mid = (lo + hi) >> 1; const t = arr[mid].time;
+      if (t === tnum){ resIdx = mid; break; }
+      if (t < tnum){ resIdx = mid; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    if (resIdx === -1) return null;
+    const val = arr[resIdx].value;
+    return (val == null ? null : val);
+  }
+
+  // --- Tooltip for chartTop ---
+  function setupTopChartTooltip(){
+    const tip = document.createElement('div');
+    tip.className = 'lwc-tooltip';
+    tip.style.position = 'absolute';
+    tip.style.display = 'none';
+    tip.style.pointerEvents = 'none';
+    tip.style.zIndex = 50;
+    tip.style.background = '#0f141c';
+    tip.style.color = '#e8eef6';
+    tip.style.border = '1px solid #2a3443';
+    tip.style.borderRadius = '8px';
+    tip.style.padding = '6px 8px';
+    tip.style.fontSize = '12px';
+    tip.style.boxShadow = '0 6px 18px rgba(0,0,0,.35)';
+    tip.style.minWidth = '120px';
+    topEl.appendChild(tip);
+
+    function showTip(x, y, html) {
+      const cs = getComputedStyle(topEl);
+      const padL = parseFloat(cs.paddingLeft) || 0;
+      const padT = parseFloat(cs.paddingTop) || 0;
+      const paneOffset = getPaneXOffset(chartTop);
+      tip.innerHTML = html;
+      tip.style.display = 'block';
+      const rect = tip.getBoundingClientRect();
+      const tw = rect.width || 160;
+      const th = rect.height || 40;
+      const cw = topEl.clientWidth;
+      const ch = topEl.clientHeight;
+      let left = x + padL + paneOffset + 12;
+      let top = y + padT + 12;
+      if (left + tw > cw - 6) left = Math.max(6, cw - tw - 6);
+      if (top + th > ch - 6)  top  = Math.max(6, ch - th - 6);
+      const prevLeft = parseFloat(tip.style.left) || -9999;
+      const prevTop  = parseFloat(tip.style.top)  || -9999;
+      if (Math.abs(prevLeft - left) < 0.5 && Math.abs(prevTop - top) < 0.5) return;
+      tip.style.left = left + 'px';
+      tip.style.top  = top  + 'px';
+    }
+    function hideTip() {
+      tip.style.display = 'none';
+      __topXhair.hide();
+    }
+
+    chartTop.subscribeCrosshairMove((param) => {
+      const __fromTopApi = (__inTopApiMove > 0);
+      if (__fromTopApi) { __inTopApiMove--; }
+      if (!__fromTopApi) __topXhair.hide();
+      if (!param || !param.point || param.time === undefined || param.time === null) {
+        const now = __nowClock();
+        const topSyncActive = now < __tipSyncTopUntil;
+        const botSyncActive = now < __tipSyncBottomUntil;
+        if (!topSyncActive) {
+          hideTip();
+        }
+        if (!botSyncActive && window.__bottomTip) window.__bottomTip.hide();
+        return;
+      }
+      const { x, y } = param.point;
+      const t = param.time;
+      const rows = [];
+      if (lineNav && seriesVisible(lineNav)) {
+        const d = param.seriesData.get(lineNav);
+        if (d && d.value != null) rows.push(`<div style="display:flex;align-items:center;gap:6px;"><span class="swatch" style="background:#ffea61;width:10px;height:10px;border-radius:3px;display:inline-block"></span><span class="val">基準価額: ${formatNumber(d.value)}</span></div>`);
+      }
+      if (lineNavReinvest && seriesVisible(lineNavReinvest)) {
+        const d = param.seriesData.get(lineNavReinvest);
+      if (d && d.value != null) rows.push(`<div style="display:flex;align-items:center;gap:6px;"><span class="swatch" style="background:#ff8a3d;width:10px;height:10px;border-radius:3px;display:inline-block"></span><span class="val">分配金再投資: ${formatNumber(d.value)}</span></div>`);
+      }
+      if (lineUnit && seriesVisible(lineUnit)) {
+        const d = param.seriesData.get(lineUnit);
+        if (d && d.value != null) rows.push(`<div style="display:flex;align-items:center;gap:6px;"><span class="swatch" style="background:#00ffff;width:10px;height:10px;border-radius:3px;display:inline-block"></span><span class="val">口数: ${formatNumber(d.value)}</span></div>`);
+      }
+      if (!rows.length) { hideTip(); if (window.__bottomTip) window.__bottomTip.hide(); return; }
+      showTip(x, y, rows.join(''));
+      if (window.__bottomTip){
+        const tnum = (typeof t === 'number') ? t : (t && typeof t === 'object' && 'year' in t ? Math.floor(Date.UTC(t.year, t.month-1, t.day)/1000) : null);
+        const now = __nowClock();
+        const suppressed = (__propSuppress.source === 'bottom' && __propSuppress.t === tnum && now < __propSuppress.deadline);
+        if (!suppressed) window.__bottomTip.showAtTime(tnum);
+      }
+    });
+    topEl.onmouseleave = ()=>{
+      hideTip();
+      __lastCrosshairTopX = null;
+      __topXhair.hide();
+      if (window.__bottomTip) window.__bottomTip.hide();
+    };
+
+    window.__topTip = {
+      showAtTime(time){
+        try{
+          const tnum = (typeof time === 'number') ? time : (time && typeof time === 'object' && 'year' in time ? Math.floor(Date.UTC(time.year, time.month-1, time.day)/1000) : null);
+          const tVis = chartBottom.timeScale().coordinateToTime(
+            chartBottom.timeScale().timeToCoordinate(tnum)
+          );
+          const x = chartTop.timeScale().timeToCoordinate(tVis);
+          const rows = [];
+          let yCoord = null;
+          let yValTop = null;
+          if (lineNav && seriesVisible(lineNav)) {
+            const v = findValueAt(navData, tnum);
+            if (v != null) {
+              rows.push(`<div style="display:flex;align-items:center;gap:6px;"><span class="swatch" style="background:#ffea61;width:10px;height:10px;border-radius:3px;display:inline-block"></span><span class="val">基準価額: ${formatNumber(v)}</span></div>`);
+              if (yCoord == null && lineNav) {
+                try{ yCoord = lineNav.priceToCoordinate(v); }catch(_){ yCoord = null; }
+                yValTop = v;
+              }
+            }
+          }
+          if (lineNavReinvest && seriesVisible(lineNavReinvest)) {
+            const v = findValueAt(navReinvestData, tnum);
+            if (v != null) rows.push(`<div style="display:flex;align-items:center;gap:6px;"><span class="swatch" style="background:#ff8a3d;width:10px;height:10px;border-radius:3px;display:inline-block"></span><span class="val">分配金再投資: ${formatNumber(v)}</span></div>`);
+          }
+          if (lineUnit && seriesVisible(lineUnit)) {
+            const v = findValueAt(unitData, tnum);
+            if (v != null) rows.push(`<div style="display:flex;align-items:center;gap:6px;"><span class="swatch" style="background:#00ffff;width:10px;height:10px;border-radius:3px;display:inline-block"></span><span class="val">口数: ${formatNumber(v)}</span></div>`);
+          }
+          if (!rows.length) { hideTip(); return; }
+          if (yCoord == null || !isFinite(yCoord)) { yCoord = 24; }
+          __skipPropagateFromTopOnce = true;
+          const nowA = __nowClock();
+          __tipSyncTopUntil = nowA + 350;
+          __propSuppress = { source: 'top', t: tnum, deadline: nowA + 350 };
+          if (__lastCrosshairTopX != null && Math.abs(__lastCrosshairTopX - x) < 0.5) {
+            // no-op
+          } else {
+            __lastCrosshairTopX = x;
+            if (__rafTop) cancelAnimationFrame(__rafTop);
+            __rafTop = requestAnimationFrame(() => {
+              __inTopApiMove++;
+              try { chartTop.moveCrosshair({ x, y: yCoord }); } catch (_) {}
+              __rafTop = null;
+            });
+          }
+          const xTextTop = (function(ts){ const d=new Date(ts*1000); return `${d.getUTCFullYear()}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')}`; })(tnum);
+          const yTextTop = (yValTop!=null) ? formatNumberForAxis(yValTop) : '';
+          __topXhair.show(x, yCoord, { t: tnum, xText: xTextTop, yText: yTextTop });
+          showTip(x, yCoord, rows.join(''));
+        }catch(_){ hideTip(); }
+      },
+      hide: hideTip,
+    };
+  }
+
+  // --- Tooltip for chartBottom ---
+  function setupBottomChartTooltip(){
+    const tip = document.createElement('div');
+    tip.className = 'lwc-tooltip';
+    tip.style.position = 'absolute';
+    tip.style.display = 'none';
+    tip.style.pointerEvents = 'none';
+    tip.style.zIndex = 50;
+    tip.style.background = '#0f141c';
+    tip.style.color = '#e8eef6';
+    tip.style.border = '1px solid #2a3443';
+    tip.style.borderRadius = '8px';
+    tip.style.padding = '6px 8px';
+    tip.style.fontSize = '12px';
+    tip.style.boxShadow = '0 6px 18px rgba(0,0,0,.35)';
+    tip.style.minWidth = '120px';
+    bottomEl.appendChild(tip);
+
+    function showTip(x, y, html) {
+      const cs = getComputedStyle(bottomEl);
+      const padL = parseFloat(cs.paddingLeft) || 0;
+      const padT = parseFloat(cs.paddingTop) || 0;
+      const paneOffset = getPaneXOffset(chartBottom);
+      tip.innerHTML = html;
+      tip.style.display = 'block';
+      const rect = tip.getBoundingClientRect();
+      const tw = rect.width || 160;
+      const th = rect.height || 40;
+      const cw = bottomEl.clientWidth;
+      const ch = bottomEl.clientHeight;
+      let left = x + padL + paneOffset + 12;
+      let top = y + padT + 12;
+      if (left + tw > cw - 6) left = Math.max(6, cw - tw - 6);
+      if (top + th > ch - 6)  top  = Math.max(6, ch - th - 6);
+      const prevLeft = parseFloat(tip.style.left) || -9999;
+      const prevTop  = parseFloat(tip.style.top)  || -9999;
+      if (Math.abs(prevLeft - left) < 0.5 && Math.abs(prevTop - top) < 0.5) return;
+      tip.style.left = left + 'px';
+      tip.style.top  = top  + 'px';
+    }
+    function hideTip() {
+      tip.style.display = 'none';
+      __bottomXhair.hide();
+    }
+
+    chartBottom.subscribeCrosshairMove((param) => {
+      const __fromBottomApi = (__inBottomApiMove > 0);
+      if (__fromBottomApi) { __inBottomApiMove--; }
+      if (!__fromBottomApi) __bottomXhair.hide();
+      if (!param || !param.point || param.time === undefined || param.time === null) {
+        const now = __nowClock();
+        const topSyncActive = now < __tipSyncTopUntil;
+        const botSyncActive = now < __tipSyncBottomUntil;
+        if (!botSyncActive) {
+          hideTip();
+        }
+        if (!topSyncActive && window.__topTip) window.__topTip.hide();
+        return;
+      }
+      const { x, y } = param.point;
+      const t = param.time;
+      let v = null;
+      if (param.seriesData && lineNetAssets) {
+        const d = param.seriesData.get(lineNetAssets);
+        if (d && d.value != null) v = d.value;
+      }
+      if (v == null) {
+        hideTip();
+        if (window.__topTip) window.__topTip.hide();
+        return;
+      }
+      showTip(x, y,
+        `<div style="display:flex;align-items:center;gap:6px;"><span class="swatch" style="background:#00ff88;width:10px;height:10px;border-radius:3px;display:inline-block"></span>
+         <span class="val">純資産総額: ${formatNumber(v)}</span></div>`);
+      if (window.__topTip){
+        const tnum = (typeof t === 'number') ? t : (t && typeof t === 'object' && 'year' in t ? Math.floor(Date.UTC(t.year, t.month-1, t.day)/1000) : null);
+        const now = __nowClock();
+        const suppressed = (__propSuppress.source === 'top' && __propSuppress.t === tnum && now < __propSuppress.deadline);
+        if (!suppressed) window.__topTip.showAtTime(tnum);
+      }
+    });
+    bottomEl.onmouseleave = ()=>{
+      hideTip();
+      __lastCrosshairBottomX = null;
+      __bottomXhair.hide();
+      if (window.__topTip) window.__topTip.hide();
+    };
+
+    window.__bottomTip = {
+      showAtTime(time){
+        try{
+          const tnum = (typeof time === 'number') ? time : (time && typeof time === 'object' && 'year' in time ? Math.floor(Date.UTC(time.year, time.month-1, time.day)/1000) : null);
+          const tVis = chartTop.timeScale().coordinateToTime(
+            chartTop.timeScale().timeToCoordinate(tnum)
+          );
+          const x = chartBottom.timeScale().timeToCoordinate(tVis);
+          const v = findValueAt(netAssetsData, tnum);
+          if (v == null) {
+            __bottomXhair.hide();
+            hideTip();
+            try { chartBottom.clearCrosshair(); } catch(_){ }
+            return;
+          }
+          let yCoord = null; try{ yCoord = lineNetAssets ? lineNetAssets.priceToCoordinate(v) : null; }catch(_){ yCoord = null; }
+          if (yCoord == null || !isFinite(yCoord)) { yCoord = 24; }
+          __skipPropagateFromBottomOnce = true;
+          const nowB = __nowClock();
+          __tipSyncBottomUntil = nowB + 350;
+          __propSuppress = { source: 'bottom', t: tnum, deadline: nowB + 350 };
+          if (__lastCrosshairBottomX != null && Math.abs(__lastCrosshairBottomX - x) < 0.5) {
+            // no-op
+          } else {
+            __lastCrosshairBottomX = x;
+            if (__rafBottom) cancelAnimationFrame(__rafBottom);
+            __rafBottom = requestAnimationFrame(() => {
+              __inBottomApiMove++;
+              try { chartBottom.moveCrosshair({ x, y: yCoord }); } catch (_) {}
+              __rafBottom = null;
+            });
+          }
+          const xTextBot = (function(ts){ const d=new Date(ts*1000); return `${d.getUTCFullYear()}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')}`; })(tnum);
+          const yTextBot = (v!=null) ? formatNumberForAxis(v) : '';
+          __bottomXhair.show(x, yCoord, { t: tnum, xText: xTextBot, yText: yTextBot });
+          showTip(x, yCoord, `<div style="display:flex;align-items:center;gap:6px;"><span class="swatch" style="background:#00ff88;width:10px;height:10px;border-radius:3px;display:inline-block"></span><span class="val">純資産総額: ${formatNumber(v)}</span></div>`);
+        }catch(_){ hideTip(); }
+      },
+      hide: hideTip,
+    };
+  }
+
+  initCharts();
+
+  function renderSeries(){
+    if (!navData.length || !netAssetsData.length || !unitData.length) return;
+    navData = normalizeSeriesData(navData, '基準価額');
+    navReinvestData = normalizeSeriesData(navReinvestData, '分配金再投資');
+    unitData = normalizeSeriesData(unitData, '口数');
+    netAssetsData = normalizeSeriesData(netAssetsData, '純資産総額');
+    if (!navData.length || !netAssetsData.length || !unitData.length) {
+      setStatus('エラー: 有効なデータが不足しています。CSVの列をご確認ください。');
+      return false;
+    }
+
+    if (!lineNav) {
+      lineNav = chartTop.addLineSeries({
+        color: '#ffea61',
+        lineWidth: 2,
+        priceScaleId: 'left',
+        priceFormat: { type: 'custom', minMove: 0.01, formatter: formatNumberForAxis }
+      });
+    }
+    if (!lineUnit) {
+      lineUnit = chartTop.addLineSeries({
+        color: '#00ffff',
+        lineWidth: 3,
+        priceScaleId: 'right',
+        priceFormat: { type: 'custom', minMove: 0.01, formatter: formatNumberForAxis }
+      });
+    }
+    if (!lineNetAssets) {
+      lineNetAssets = chartBottom.addLineSeries({
+        color: '#00ff88',
+        lineWidth: 2,
+        priceFormat: { type: 'custom', minMove: 0.01, formatter: formatNumberForAxis }
+      });
+    }
+
+    try{ lineNav.setData(navData); }catch(e){ setStatus(`エラー: 基準価額の描画に失敗しました (${e.message || e})`); return false; }
+    try{ lineUnit.setData(unitData); }catch(e){ setStatus(`エラー: 口数の描画に失敗しました (${e.message || e})`); return false; }
+    try{ lineNetAssets.setData(netAssetsData); }catch(e){ setStatus(`エラー: 純資産総額の描画に失敗しました (${e.message || e})`); return false; }
+
+    if (navReinvestData.length) {
+      if (!lineNavReinvest) {
+        lineNavReinvest = chartTop.addLineSeries({
+          color: '#ff8a3d',
+          lineWidth: 2,
+          priceScaleId: 'left',
+          priceFormat: { type: 'custom', minMove: 0.01, formatter: formatNumberForAxis }
+        });
+      }
+      lineNavReinvest.setData(navReinvestData);
+      applyReinvestVisibility();
+    } else if (lineNavReinvest) {
+      chartTop.removeSeries(lineNavReinvest);
+      lineNavReinvest = null;
+    }
+
+    chartTop.timeScale().fitContent();
+    chartBottom.timeScale().fitContent();
+    return true;
+  }
+  function applyNetAssetsUnitScale(){
+    const factor = toggleMillionUnit.checked ? 1 / 100 : 1;
+    navData = baseNavData.slice();
+    navReinvestData = baseNavReinvestData.slice();
+    netAssetsData = baseNetAssetsData.map(r => ({ time: r.time, value: r.value * factor }));
+    unitData = baseUnitData.map(r => ({ time: r.time, value: r.value * factor }));
+    if (!renderSeries()) return;
+    forceRedraw();
+  }
+  function forceRedraw(){
+    try{ chartTop.applyOptions({ width: topEl.clientWidth, height: topEl.clientHeight }); }catch(_){ }
+    try{ chartBottom.applyOptions({ width: bottomEl.clientWidth, height: bottomEl.clientHeight }); }catch(_){ }
+    try{ chartTop.timeScale().fitContent(); }catch(_){ }
+    try{ chartBottom.timeScale().fitContent(); }catch(_){ }
+  }
+
+  async function handleFile(file){
+    if (!file) return;
+    const seq = ++loadSeq;
+    initCharts();
+    resetSeries();
+    fundNameText.textContent = '-';
+    toggleReinvest.checked = false;
+    toggleReinvest.disabled = true;
+    reinvestToggleWrap.classList.add('disabled');
+    toggleMillionUnit.checked = false;
+    toggleMillionUnit.disabled = true;
+    millionToggleWrap.classList.add('disabled');
+    setStatus(`読み込み中: ${file.name} (${Math.round(file.size/1024)} KB)`);
+    try{
+      const text = await decodePreferSjis(file);
+      if (seq !== loadSeq) return;
+      const parsed = parseFundCSV(text, file.name);
+      if (seq !== loadSeq) return;
+      baseNavData = parsed.navData;
+      baseNavReinvestData = parsed.navReinvestData;
+      baseUnitData = parsed.unitData;
+      baseNetAssetsData = parsed.netAssetsData;
+
+      fundNameText.textContent = parsed.label || '-';
+
+      toggleReinvest.checked = false;
+      toggleReinvest.disabled = !parsed.hasReinvest;
+      reinvestToggleWrap.classList.toggle('disabled', !parsed.hasReinvest);
+      toggleMillionUnit.disabled = false;
+      millionToggleWrap.classList.remove('disabled');
+
+      applyNetAssetsUnitScale();
+      requestAnimationFrame(() => {
+        if (seq !== loadSeq) return;
+        forceRedraw();
+      });
+
+      appendStatus([
+        `ラベル: ${parsed.label}`,
+        `ヘッダー行: ${parsed.headerIndex + 1} 行目`,
+        `区切り: ${parsed.delim === '\t' ? 'タブ' : parsed.delim}`,
+        `基準価額: ${navData.length} 件`,
+        `分配金再投資: ${parsed.hasReinvest ? navReinvestData.length + ' 件' : 'なし'}`,
+        `口数: ${unitData.length} 件 (${parsed.unitFormula})`,
+        `純資産総額: ${netAssetsData.length} 件${parsed.netAssetsScale !== 1 ? ' (円→億円換算)' : ''}`,
+        '-----'
+      ].join('\n'));
+    }catch(e){
+      setStatus(`エラー: ${e.message || e}`);
+    }
+  }
+
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+  drop.addEventListener('dragover', (e)=>{ e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', ()=> drop.classList.remove('dragover'));
+  drop.addEventListener('drop', (e)=>{
+    e.preventDefault();
+    drop.classList.remove('dragover');
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener('change', (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if (file) handleFile(file);
+  });
+
+  setStatus('CSVを1つ読み込むと描画します。');
+</script>
+</body>
+</html>
