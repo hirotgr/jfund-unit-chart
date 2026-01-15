@@ -14,6 +14,7 @@
 
 # ダウンロード
 
-このツールはローカルにダウンロードして使用可能することができます。`jfund-unit-chart.html`をダウンロードしてブラウザで開いてください。
+このツールはローカルにダウンロードして使用可能することができます。<br>
+手順: `index.html`へのリンクを右クリック >「名前を付けて保存」> `jfund-unit-chart.html`に名前を変更してダウンロード > ブラウザで開く
 
-* <a href="https://raw.githubusercontent.com/hirotgr/jfund-unit-chart/main/index.html" download="jfund-unit-chart.html">jfund-unit-chart.html</a>
+* [index.html](https://raw.githubusercontent.com/hirotgr/jfund-unit-chart/main/index.html)
