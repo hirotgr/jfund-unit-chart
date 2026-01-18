@@ -10,11 +10,11 @@
 # GitHub Pages
 
 * [https://hirotgr.github.io/jfund-unit-chart/](https://hirotgr.github.io/jfund-unit-chart/)
-  * サンプルCSVファイル: [ダウンロード](https://raw.githubusercontent.com/hirotgr/jfunds-nav-chart/main/sample-csv.zip)
+* 価額データは各投資信託運用会社のWebサイトからCSVファイルをダウンロードしてください。
 
 # ダウンロード
 
-このツールはローカルにダウンロードして使用可能することができます。<br>
-手順: `index.html`へのリンクを右クリック >「名前を付けて保存」> `jfund-unit-chart.html`に名前を変更してダウンロード > ブラウザで開く
+このツールはHTMLファイル単体で機能するので「名前を付けて保存」などでローカルにダウンロードして使用することができます。<br>
+`index.html`を `jfund-unit-chart.html`などに名前変更して保存してください。
 
 * [index.html](https://raw.githubusercontent.com/hirotgr/jfund-unit-chart/main/index.html)
