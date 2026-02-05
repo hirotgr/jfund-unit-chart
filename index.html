@@ -114,7 +114,7 @@
       <div id="bottomChart" class="panel" aria-label="純資産総額チャート"></div>
     </div>
     <footer style="margin-top:10px;text-align:center;color:#9fb0c3;font-size:12px;">
-      <div><a href="https://github.com/hirotgr/jfund-unit-chart" target="_blank" style="color:#6aa0ff;text-decoration:none;">jfund-unit-chart</a> version 0.2 : created by GPT-5.2-Codex with <a href="https://x.com/_hirotgr" target="_blank" style="color:#6aa0ff;text-decoration:none;">@_hirotgr</a></div>
+      <div><a href="https://github.com/hirotgr/jfund-unit-chart" target="_blank" style="color:#6aa0ff;text-decoration:none;">jfund-unit-chart</a> version 0.3 : created by GPT-5.2-Codex with <a href="https://x.com/_hirotgr" target="_blank" style="color:#6aa0ff;text-decoration:none;">@_hirotgr</a></div>
       <div>powered by <a href="https://jp.tradingview.com/lightweight-charts/" target="_blank" style="color:#6aa0ff;text-decoration:none;">Lightweight Charts™︎ (©TradingView)</a>, License: Apache2.0 (see LICENSE and NOTICE on <a href="https://github.com/tradingview/lightweight-charts" target="_blank" style="color:#6aa0ff;text-decoration:none;">GitHub</a>)</div>
 
     </footer>
@@ -197,6 +197,23 @@
       }
     } catch(_){ }
     return AXIS_LABEL_WIDTH;
+  }
+
+  function getPriceScaleWidth(chart, which){
+    try {
+      const ps = chart && chart.priceScale ? chart.priceScale(which) : null;
+      if (ps && typeof ps.width === 'function') return ps.width();
+    } catch(_){ }
+    return null;
+  }
+  function getTimeRange(chart){
+    try {
+      const ts = chart && chart.timeScale ? chart.timeScale() : null;
+      if (!ts) return null;
+      if (typeof ts.getVisibleRange === 'function') return ts.getVisibleRange();
+      if (typeof ts.getVisibleLogicalRange === 'function') return ts.getVisibleLogicalRange();
+    } catch(_){ }
+    return null;
   }
 
   (function setupHelpModal(){
@@ -390,6 +407,7 @@
     const navReinvestData = dedupByTime(navReinvestSeries);
     const netAssetsData = dedupByTime(netAssetsSeries);
     const unitBaseData = dedupByTime(unitBaseRows);
+
 
     if (!navData.length) throw new Error('基準価額の有効なデータが見つかりません。');
     if (!netAssetsData.length) throw new Error('純資産総額の有効なデータが見つかりません。');
@@ -1075,7 +1093,8 @@
 
   initCharts();
 
-  function renderSeries(){
+
+  function renderSeries(attempt = 0){
     if (!navData.length || !netAssetsData.length || !unitData.length) return;
     navData = normalizeSeriesData(navData, '基準価額');
     navReinvestData = normalizeSeriesData(navReinvestData, '分配金再投資');
@@ -1110,9 +1129,31 @@
       });
     }
 
-    try{ lineNav.setData(navData); }catch(e){ setStatus(`エラー: 基準価額の描画に失敗しました (${e.message || e})`); return false; }
-    try{ lineUnit.setData(unitData); }catch(e){ setStatus(`エラー: 口数の描画に失敗しました (${e.message || e})`); return false; }
-    try{ lineNetAssets.setData(netAssetsData); }catch(e){ setStatus(`エラー: 純資産総額の描画に失敗しました (${e.message || e})`); return false; }
+    const maxAttempts = 2;
+    const retry = () => {
+      if (attempt >= maxAttempts) return false;
+      requestAnimationFrame(() => {
+        forceRedraw();
+        renderSeries(attempt + 1);
+      });
+      return true;
+    };
+
+    try{ lineNav.setData(navData); }catch(e){
+      if (retry()) return false;
+      setStatus(`エラー: 基準価額の描画に失敗しました (${e.message || e})`);
+      return false;
+    }
+    try{ lineUnit.setData(unitData); }catch(e){
+      if (retry()) return false;
+      setStatus(`エラー: 口数の描画に失敗しました (${e.message || e})`);
+      return false;
+    }
+    try{ lineNetAssets.setData(netAssetsData); }catch(e){
+      if (retry()) return false;
+      setStatus(`エラー: 純資産総額の描画に失敗しました (${e.message || e})`);
+      return false;
+    }
 
     if (navReinvestData.length) {
       if (!lineNavReinvest) {
@@ -1134,6 +1175,7 @@
     chartBottom.timeScale().fitContent();
     return true;
   }
+
   function applyNetAssetsUnitScale(){
     const factor = toggleMillionUnit.checked ? 1 / 100 : 1;
     navData = baseNavData.slice();
