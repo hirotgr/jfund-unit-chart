@@ -18,3 +18,7 @@
 `index.html`を `jfund-unit-chart.html`などに名前変更して保存してください。
 
 * [index.html](https://raw.githubusercontent.com/hirotgr/jfund-unit-chart/main/index.html)
+
+# 使用イメージ
+
+![](./README-1.png)
