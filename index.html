@@ -52,8 +52,10 @@
     .toggle-wrap.disabled input{cursor:not-allowed}
     .toggle-wrap input{cursor:pointer}
     .panel-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:10px}
-    .help-btn{ margin-left:auto; border:1px solid #2a3443; background:#152033; color:var(--text); border-radius:8px; padding:6px 10px; font-size:13px; cursor:pointer; }
+    .help-btn{border:1px solid #2a3443;background:#152033;color:var(--text);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
     .help-btn:hover{ background:#1b2738; border-color:#3a4960; }
+    .link-btn{ margin-left:auto; border:1px solid #2a3443; background:#152033; color:#6aa0ff; border-radius:8px; padding:6px 10px; font-size:13px; text-decoration:none; cursor:pointer; }
+    .link-btn:hover{ background:#1b2738; border-color:#3a4960; }
     .modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:9999; }
     .modal.open{ display:flex; }
     .modal-panel{ width:min(980px, 92vw); height:min(86vh, 900px); background:var(--panel); border:1px solid #2a3443; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.45); display:flex; flex-direction:column; overflow:hidden; }
@@ -71,6 +73,7 @@
     <div id="topFixed">
       <header style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;">
         <div style="font-size:18px;font-weight:600;">投資信託 総口数チャート</div>
+        <a href="https://hirotgr.github.io/public-docs/tools.html" class="link-btn" target="_blank">他のツール</a>
         <button id="helpBtn" class="help-btn" title="使い方を開く">ヘルプ</button>
       </header>
 
@@ -114,7 +117,7 @@
       <div id="bottomChart" class="panel" aria-label="純資産総額チャート"></div>
     </div>
     <footer style="margin-top:10px;text-align:center;color:#9fb0c3;font-size:12px;">
-      <div><a href="https://github.com/hirotgr/jfund-unit-chart" target="_blank" style="color:#6aa0ff;text-decoration:none;">jfund-unit-chart</a> version 0.3 : created by GPT-5.2-Codex with <a href="https://x.com/_hirotgr" target="_blank" style="color:#6aa0ff;text-decoration:none;">@_hirotgr</a></div>
+      <div><a href="https://github.com/hirotgr/jfund-unit-chart" target="_blank" style="color:#6aa0ff;text-decoration:none;">jfund-unit-chart</a> version 0.3.1 : created by GPT-5.2-Codex with <a href="https://x.com/_hirotgr" target="_blank" style="color:#6aa0ff;text-decoration:none;">@_hirotgr</a></div>
       <div>powered by <a href="https://jp.tradingview.com/lightweight-charts/" target="_blank" style="color:#6aa0ff;text-decoration:none;">Lightweight Charts™︎ (©TradingView)</a>, License: Apache2.0 (see LICENSE and NOTICE on <a href="https://github.com/tradingview/lightweight-charts" target="_blank" style="color:#6aa0ff;text-decoration:none;">GitHub</a>)</div>
 
     </footer>
